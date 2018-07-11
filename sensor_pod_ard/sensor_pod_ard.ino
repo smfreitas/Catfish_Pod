@@ -29,10 +29,15 @@
 char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
 
-int test1 = 8;
-int test2 = 9;
+long lastMsg = 0; // keeps track of how many messages
+int value = 0;
 
-String test_array[2] = {String(test1), String(test2)};
+// Variables for printing temp data. Replace with variables for sensor data!!!
+
+String tempString; //see code block below use these to convert the float that you get back from DHT to a string =str
+char tem[50]; // char array for how many characters can be sent in the message.
+              // For example, tem (this temporary data) can be a max of 50 characters in the
+              // float. 
 
 int status = WL_IDLE_STATUS;     // the WiFi radio's status
 
@@ -40,6 +45,11 @@ IPAddress server(10,0,0,1);  //This is the address of the MQTT server to be used
 WiFiClient wificlient;
 PubSubClient mqttclient(wificlient);     // This section of code creates an object
 
+/* This block of code initializes the Wifi connection
+ *  and the MQTT server connection. It also opens the 
+ *  serial port.
+ */
+ 
 void setup() {
   
   //Initialize serial and wait for port to open:
@@ -47,14 +57,6 @@ void setup() {
   while (!Serial) {
     ; // wait for serial port to connect. Needed for native USB port only
   }
-
-  // THE FOLLOWING CODE CAUSES ERROR, NOT SURE WHY
-  // check for the presence of the shield:
-  //if (WiFi.status() == WL_NO_SHIELD) {
-   // Serial.println("WiFi shield not present");
-    // don't continue:
-   // while (true);
-  //}
 
   // attempt to connect to WiFi network:
   while ( status != WL_CONNECTED) {
@@ -77,10 +79,17 @@ void setup() {
  
 }
 
+/* This block of code is for looping through and making sure that
+ *  the Arduino is still connected to both the internet and the
+ *  MQTT server. 
+ *  
+ *  Error handling is present in case of disconnect.
+ */
+ 
 void loop() {
   // check the network connection once every 10 seconds:
   delay(10000);
-  printCurrentNet();
+  printCurrentNet();   // This is for testing connection for underwater wifi
     if (!mqttclient.connected()){
     Serial.println("Disconnected...");
     reconnect();   // If server disconnect happens, reconnect
@@ -88,17 +97,35 @@ void loop() {
   else if(mqttclient.connected()){
     Serial.println("Still Connected...");
     // publish data every 10 seconds
-    if (millis() > (time + 10000)){
-      time = millis();
+
+/* This block of code is specifically for the publishing of the sensor data. Some lines
+ *  in here will be edited for this. 
+ *  
+ *  For example, float temp will become .getTemperature() or something similar.
+ *  tempString will become humString if it is for Humidity. etc.
+ */
+ 
+//counter for the messages, see if I am missing any on the Mqtt broker
+  
+  long now = millis(); 
+  if (now - lastMsg > 2000) {
+    lastMsg = now;
+    ++value;
+    
+//Preparing for mqtt send
       float temp = 1584; // test value. actual code would be dht.getTemperature() or something
-      pubString = String(temp);  // Converts from float to string
-      pubString.toCharArray(tem, temp_str.length() + 1); // Packages data to be sent through MQTT
+      tempString = String(temp);  // Converts from float to string
+      tempString.toCharArray(tem, tempString.length() + 1); // Packages data to be sent through MQTT
       mqttclient.publish("Temp",tem);  // If server is connected, publish data 
     }
   }  
   mqttclient.loop();  // Loop forever
 }
 
+/* This block of code is for reconnecting in case of
+ *  any disconnection from the MQTT client.
+ */
+ 
 void reconnect(){
   // loop until we're reconnected
   while (!mqttclient.connected()){
@@ -118,6 +145,8 @@ void reconnect(){
 }
 
 
+/* This block of code is for printing Wifi data.
+ */
 void printWiFiData() {
   // print your WiFi shield's IP address:
   IPAddress ip = WiFi.localIP();
@@ -143,6 +172,9 @@ void printWiFiData() {
 
 }
 
+/* This block of code is for printing network data.
+ */
+ 
 void printCurrentNet() {
   // print the SSID of the network you're attached to:
   Serial.print("SSID: ");
